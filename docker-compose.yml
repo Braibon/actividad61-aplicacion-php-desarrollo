@@ -1,0 +1,45 @@
+
+version: '3.8'
+
+services:
+  # SERVICIO 1: Base de datos MariaDB
+  db:
+    image: mariadb:10.11
+    container_name: db_nba
+    restart: always
+    environment:
+      # Lee las credenciales de tu archivo .env
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    volumes:
+      # Esto hace que MariaDB ejecute tu archivo database.sql la primera vez que arranca
+      - ./sql/database.sql:/docker-entrypoint-initdb.d/database.sql
+      # Guarda los datos para que no se borren si apagas el contenedor
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  # SERVICIO 2: Aplicación Web (Apache + PHP)
+  web:
+    build: . # Construye la imagen usando tu archivo Dockerfile
+    container_name: nba_web
+    restart: always
+    depends_on:
+      - db
+    ports:
+      - "80:80" # Expone la web en el puerto 80 del servidor EC2
+    volumes:
+      # Sincroniza tu carpeta src con el servidor web (ideal para desarrollo)
+      - ./src:/var/www/html
+      - ./conf/000-default.conf:/etc/apache2/sites-available/000-default.conf
+    environment:
+      # Pasa las variables a PHP para que pueda conectarse
+      DB_HOST: db
+      DB_NAME: ${MARIADB_DATABASE}
+      DB_USER: ${MARIADB_USER}
+      DB_PASS: ${MARIADB_PASSWORD}
+
+volumes:
+  db_data:
